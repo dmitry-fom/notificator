@@ -1,0 +1,53 @@
+services:
+  app:
+    container_name: app
+    build:
+      dockerfile: ./app/Dockerfile
+    volumes:
+      - ./app/:/app/
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - locally
+    command: tail -f /dev/null
+
+  worker:
+    container_name: worker
+    build:
+      dockerfile: ./app/Dockerfile
+    volumes:
+      - ./app/:/app/
+    networks:
+      - locally
+    depends_on:
+      - app
+    command: php artisan queue:listen --tries=3 --timeout=60 --queue=sms,slack,webhook,mail,teams
+
+  redis:
+    container_name: redis
+    image: redis
+    ports:
+      - '6379:6379'
+    volumes:
+      - ./.docker/redis/data/:/data/
+    restart: always
+    networks:
+      - locally
+
+  postgres:
+    container_name: postgres
+    image: postgres
+    ports:
+      - '5432:5432'
+    volumes:
+      - ./.docker/postgres/data/:/var/lib/postgresql/data/
+    environment:
+      POSTGRES_PASSWORD: 'secret'
+      POSTGRES_USER: 'default'
+      POSTGRES_DB: 'default'
+    networks:
+      - locally
+
+networks:
+  locally:
